@@ -9,6 +9,11 @@ type Task = {
   description: string | null;
   dueDate: string | null;
   isArchived: boolean;
+  // Statut renvoyé par l'API (depuis la table task_status)
+  status?: {
+    id: number;
+    label: string;
+  } | null;
   category?: {
     id: number;
     label: string;
@@ -833,22 +838,38 @@ const Tasks: React.FC = () => {
                             }}>
                               {task.name}
                             </h3>
-                            {task.priority && (
-                              <span style={{
-                                padding: '4px 10px',
-                                backgroundColor: '#ffae00ff',
-                                color: 'white',
-                                borderRadius: '6px',
-                                fontSize: '0.75em',
-                                fontWeight: '600',
-                                marginLeft: '10px',
-                                whiteSpace: 'nowrap',
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
+                            <div style={{ display: 'flex', gap: '6px', marginLeft: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                              {/* Badge du statut BDD affiché sur la carte */}
+                              {task.status && (
+                                <span style={{
+                                  padding: '4px 10px',
+                                  backgroundColor: '#3498db',
+                                  color: 'white',
+                                  borderRadius: '6px',
+                                  fontSize: '0.75em',
+                                  fontWeight: '600',
+                                  whiteSpace: 'nowrap',
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
+                                }}>
+                                  📌 {task.status.label}
+                                </span>
+                              )}
+                              {task.priority && (
+                                <span style={{
+                                  padding: '4px 10px',
+                                  backgroundColor: '#ffae00ff',
+                                  color: 'white',
+                                  borderRadius: '6px',
+                                  fontSize: '0.75em',
+                                  fontWeight: '600',
+                                  whiteSpace: 'nowrap',
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
 
-                              }}>
-                                ⚡ {task.priority.label}
-                              </span>
-                            )}
+                                }}>
+                                  ⚡ {task.priority.label}
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           {task.description && (

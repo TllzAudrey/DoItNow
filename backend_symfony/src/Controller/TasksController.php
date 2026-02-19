@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\Tasks as TaskEntity;
 use App\Entity\TaskHistory;
+use App\Entity\TaskStatus; 
 use App\Entity\UsersTasks;
 use App\Repository\TasksRepository;
 use App\Repository\TaskHistoryRepository;
@@ -58,6 +59,11 @@ final class TasksController extends AbstractController
                     'description' => $task->getDescription(),
                     'dueDate' => $task->getDueDate()?->format(DATE_ATOM),
                     'isArchived' => $task->isArchived(),
+                    // Expose le statut réel de la tâche depuis la BDD
+                    'status' => $task->getStatus() ? [
+                        'id' => $task->getStatus()->getId(),
+                        'label' => $task->getStatus()->getLabel(),
+                    ] : null,
                     'category' => $task->getCategory() ? [
                         'id' => $task->getCategory()->getId(),
                         'label' => $task->getCategory()->getLabel(),
@@ -102,9 +108,12 @@ final class TasksController extends AbstractController
                 ->leftJoin('t.usersTasks', 'ut')
                 ->leftJoin('t.category', 'c')
                 ->leftJoin('t.priority', 'p')
+                // Jointure statut pour permettre la recherche par label de statut
+                ->leftJoin('t.status', 's')
                 ->where('ut.user = :user')
                 ->andWhere('t.isArchived = :archived')
-                ->andWhere('(t.name LIKE :query OR t.description LIKE :query OR c.label LIKE :query OR p.label LIKE :query)')
+                // Recherche étendue : nom, description, catégorie, priorité, statut
+                ->andWhere('(t.name LIKE :query OR t.description LIKE :query OR c.label LIKE :query OR p.label LIKE :query OR s.label LIKE :query)')
                 ->setParameter('user', $user)
                 ->setParameter('archived', false)
                 ->setParameter('query', '%' . $query . '%')
@@ -120,6 +129,11 @@ final class TasksController extends AbstractController
                     'description' => $task->getDescription(),
                     'dueDate' => $task->getDueDate()?->format(DATE_ATOM),
                     'isArchived' => $task->isArchived(),
+                    // Expose le statut réel de la tâche depuis la BDD
+                    'status' => $task->getStatus() ? [
+                        'id' => $task->getStatus()->getId(),
+                        'label' => $task->getStatus()->getLabel(),
+                    ] : null,
                     'category' => $task->getCategory() ? [
                         'id' => $task->getCategory()->getId(),
                         'label' => $task->getCategory()->getLabel(),
@@ -221,14 +235,8 @@ final class TasksController extends AbstractController
                 }
             }
 
-            // Récupérer le statut par défaut
-            $status = $taskStatusRepository->findOneBy(['label' => 'En cours']) 
-                ?? $taskStatusRepository->findOneBy([])
-                ?? null;
-
-            if (!$status) {
-                return $this->json(['error' => 'Aucun statut de tâche disponible'], 500);
-            }
+            // Récupérer un statut existant ou créer le statut par défaut
+            $status = $this->getOrCreateDefaultStatus($taskStatusRepository, $em);
 
             $task->setStatus($status);
 
@@ -265,6 +273,11 @@ final class TasksController extends AbstractController
                     'description' => $task->getDescription(),
                     'dueDate' => $task->getDueDate()?->format(DATE_ATOM),
                     'isArchived' => $task->isArchived(),
+                    // Retourne le statut créé/assigné pour synchroniser le frontend
+                    'status' => $task->getStatus() ? [
+                        'id' => $task->getStatus()->getId(),
+                        'label' => $task->getStatus()->getLabel(),
+                    ] : null,
                     'category' => $task->getCategory() ? [
                         'id' => $task->getCategory()->getId(),
                         'label' => $task->getCategory()->getLabel(),
@@ -466,6 +479,11 @@ final class TasksController extends AbstractController
                     'description' => $task->getDescription(),
                     'dueDate' => $task->getDueDate()?->format(DATE_ATOM),
                     'isArchived' => $task->isArchived(),
+                    // Retourne le statut courant après mise à jour
+                    'status' => $task->getStatus() ? [
+                        'id' => $task->getStatus()->getId(),
+                        'label' => $task->getStatus()->getLabel(),
+                    ] : null,
                     'category' => $task->getCategory() ? [
                         'id' => $task->getCategory()->getId(),
                         'label' => $task->getCategory()->getLabel(),
@@ -760,6 +778,20 @@ final class TasksController extends AbstractController
                 'description' => $task->getDescription(),
                 'dueDate' => $task->getDueDate()?->format(DATE_ATOM),
                 'isArchived' => $task->isArchived(),
+                // Expose les infos complètes (dont statut) pour l'écran détail utilisateur
+                'status' => $task->getStatus() ? [
+                    'id' => $task->getStatus()->getId(),
+                    'label' => $task->getStatus()->getLabel(),
+                ] : null,
+                'category' => $task->getCategory() ? [
+                    'id' => $task->getCategory()->getId(),
+                    'label' => $task->getCategory()->getLabel(),
+                    'color' => $task->getCategory()->getColor(),
+                ] : null,
+                'priority' => $task->getPriority() ? [
+                    'id' => $task->getPriority()->getId(),
+                    'label' => $task->getPriority()->getLabel(),
+                ] : null,
             ]);
 
         } catch (\Exception $e) {
@@ -769,5 +801,24 @@ final class TasksController extends AbstractController
                 'message' => $e->getMessage()
             ], 500);
         }
+    }
+
+// Récupérer ou créer le statut par défaut "En cours"
+    private function getOrCreateDefaultStatus(
+        TaskStatusRepository $taskStatusRepository,
+        EntityManagerInterface $em
+    ): TaskStatus {
+        $status = $taskStatusRepository->findOneBy(['label' => 'En cours'])
+            ?? $taskStatusRepository->findOneBy([]);
+
+        if ($status) {
+            return $status;
+        }
+
+        $status = new TaskStatus();
+        $status->setLabel('En cours');
+        $em->persist($status);
+
+        return $status;
     }
 }
