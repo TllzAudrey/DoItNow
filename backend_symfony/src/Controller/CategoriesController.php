@@ -45,6 +45,17 @@ final class CategoriesController extends AbstractController
     public function list(TaskCategoryRepository $categoryRepository): JsonResponse
     {
         $categories = $categoryRepository->findAll();
+        if (count($categories) < 1) {
+            // Créer une catégorie par défaut
+            $defaultCategory = new TaskCategory();
+            $defaultCategory->setLabel('catégorie 1');
+            $defaultCategory->setColor('#5a6268');
+            $em = $this->getDoctrine()->getManager();
+            $em->persist($defaultCategory);
+            $em->flush();
+            // Rafraîchir la liste
+            $categories = $categoryRepository->findAll();
+        }
 
         $data = array_map(static function (TaskCategory $category) {
             return [

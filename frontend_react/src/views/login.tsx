@@ -123,7 +123,16 @@ const LoginPage: React.FC = () => {
           placeholder="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          style={style}
+          InputProps={{
+            style: {
+              color: '#fff',
+              borderColor: '#fff',
+            },
+          }}
+          InputLabelProps={{
+            style: { color: '#fff' },
+          }}
+          style={{ ...style, color: '#fff', borderColor: '#fff' }}
         />
         <TextField
           id="outlined-password-input"
@@ -132,12 +141,21 @@ const LoginPage: React.FC = () => {
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          style={style}
+          InputProps={{
+            style: {
+              color: '#fff',
+              borderColor: '#fff',
+            },
+          }}
+          InputLabelProps={{
+            style: { color: '#fff' },
+          }}
+          style={{ ...style, color: '#fff', borderColor: '#fff' }}
         />
         <div>
           <FormControlLabel
-            control={<Checkbox />}
-            label="Se souvenir de moi"
+            control={<Checkbox style={{ color: '#fff' }} />}
+            label={<span style={{ color: '#fff' }}>Se souvenir de moi</span>}
             checked={rememberMe}
             onChange={(e) => setRememberMe((e.target as HTMLInputElement).checked)}
           />
