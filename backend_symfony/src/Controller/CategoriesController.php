@@ -39,21 +39,20 @@ final class CategoriesController extends AbstractController
         ], 201);
     }
 
-    // READ ALL
     #[Route('/api/categories', name: 'category_list', methods: ['GET'])]
     #[IsGranted('ROLE_USER')]
     public function list(TaskCategoryRepository $categoryRepository): JsonResponse
     {
+
         $categories = $categoryRepository->findAll();
-        if (count($categories) < 1) {
-            // Créer une catégorie par défaut
+        if (count($categories) < 1) {// si pas de catégorie créer une catégorie par défaut
+
             $defaultCategory = new TaskCategory();
             $defaultCategory->setLabel('catégorie 1');
             $defaultCategory->setColor('#5a6268');
-            $em = $this->getDoctrine()->getManager();
+            $em = $categoryRepository->getEntityManager();
             $em->persist($defaultCategory);
             $em->flush();
-            // Rafraîchir la liste
             $categories = $categoryRepository->findAll();
         }
 

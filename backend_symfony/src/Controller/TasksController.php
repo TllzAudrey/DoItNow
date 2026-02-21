@@ -246,6 +246,13 @@ final class TasksController extends AbstractController
                 if ($category) {
                     $task->setCategory($category);
                 }
+            } else {
+                // Si aucune catégorie n'est spécifiée, vérifier s'il existe des catégories
+                $categories = $taskCategoryRepository->findAll();
+                if (count($categories) === 0) {
+                    $defaultCategory = $this->getOrCreateDefaultCategory($taskCategoryRepository, $em);
+                    $task->setCategory($defaultCategory);
+                }
             }
 
             // Gérer la priorité
@@ -801,24 +808,5 @@ final class TasksController extends AbstractController
                 'message' => $e->getMessage()
             ], 500);
         }
-    }
-
-// Récupérer ou créer le statut par défaut "En cours"
-    private function getOrCreateDefaultStatus(
-        TaskStatusRepository $taskStatusRepository,
-        EntityManagerInterface $em
-    ): TaskStatus {
-        $status = $taskStatusRepository->findOneBy(['label' => 'En cours'])
-            ?? $taskStatusRepository->findOneBy([]);
-
-        if ($status) {
-            return $status;
-        }
-
-        $status = new TaskStatus();
-        $status->setLabel('En cours');
-        $em->persist($status);
-
-        return $status;
     }
 }
