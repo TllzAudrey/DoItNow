@@ -110,71 +110,84 @@ final class UsersController extends AbstractController
     #[IsGranted('ROLE_ADMIN')]
     public function update(int $id, Request $request, EntityManagerInterface $em, UsersRepository $usersRepository, UserPasswordHasherInterface $passwordHasher): JsonResponse
     {
-        $user = $usersRepository->find($id);
+        try {
+            $user = $usersRepository->find($id);
 
-        if (!$user) {
-            return $this->json(['error' => 'User not found'], 404);
-        }
-
-        $data = json_decode($request->getContent(), true);
-
-        // Mise à jour du pseudo
-        if (isset($data['pseudo'])) {
-            // Vérifier si le pseudo existe déjà (sauf pour l'utilisateur actuel)
-            $existingPseudo = $usersRepository->findOneByPseudo($data['pseudo']);
-            if ($existingPseudo && $existingPseudo->getId() !== $user->getId()) {
-                return $this->json(['error' => 'Pseudo already exists'], 409);
+            if (!$user) {
+                return $this->json(['error' => 'User not found'], 404);
             }
-            $user->setPseudo($data['pseudo']);
-        }
 
-        // Mise à jour de l'email
-        if (isset($data['email'])) {
-            // Vérifier si l'email existe déjà (sauf pour l'utilisateur actuel)
-            $existingEmail = $usersRepository->findOneByEmail($data['email']);
-            if ($existingEmail && $existingEmail->getId() !== $user->getId()) {
-                return $this->json(['error' => 'Email already exists'], 409);
+            $data = json_decode($request->getContent(), true);
+
+            // Mise à jour du pseudo
+            if (isset($data['pseudo'])) {
+                // Vérifier si le pseudo existe déjà (sauf pour l'utilisateur actuel)
+                $existingPseudo = $usersRepository->findOneByPseudo($data['pseudo']);
+                if ($existingPseudo && $existingPseudo->getId() !== $user->getId()) {
+                    return $this->json(['error' => 'Pseudo already exists'], 409);
+                }
+                $user->setPseudo($data['pseudo']);
             }
-            $user->setEmail($data['email']);
-        }
 
-        // Mise à jour du mot de passe (seulement si fourni)
-        if (isset($data['password']) && !empty($data['password'])) {
-            $hashedPassword = $passwordHasher->hashPassword($user, $data['password']);
-            $user->setPassword($hashedPassword);
-        }
+            // Mise à jour de l'email
+            if (isset($data['email'])) {
+                // Vérifier si l'email existe déjà (sauf pour l'utilisateur actuel)
+                $existingEmail = $usersRepository->findOneByEmail($data['email']);
+                if ($existingEmail && $existingEmail->getId() !== $user->getId()) {
+                    return $this->json(['error' => 'Email already exists'], 409);
+                }
+                $user->setEmail($data['email']);
+            }
 
-        // Mise à jour du rôle (interdire de MODIFIER le rôle d'un admin ou de PASSER à admin)
-        if (isset($data['role'])) {
-            $newRole = (int)$data['role'];
-            $currentRole = $user->getRole();
+            // Mise à jour du mot de passe (seulement si fourni)
+            if (isset($data['password']) && !empty($data['password'])) {
+                $hashedPassword = $passwordHasher->hashPassword($user, $data['password']);
+                $user->setPassword($hashedPassword);
+            }
+
+            // Mise à jour du rôle (interdire de MODIFIER le rôle d'un admin ou de PASSER à admin)
+            if (isset($data['role'])) {
+                $newRole = (int)$data['role'];
+                $currentRoles = $user->getRoles(); // tableau de rôles
+                $isAdmin = in_array('ROLE_ADMIN', $currentRoles, true);
+
+                // Bloquer si on tente de changer le rôle d'un admin (admin -> user ou garder admin)
+                // ou de passer à admin (user -> admin)
+                if ($isAdmin && $newRole !== 1) {
+                    return $this->json([
+                        'error' => 'Impossible de modifier le rôle d\'un administrateur depuis l\'interface. Veuillez utiliser la base de données directement.'
+                    ], 403);
+                }
+                if (!$isAdmin && $newRole === 1) {
+                    return $this->json([
+                        'error' => 'Impossible de définir le rôle administrateur depuis l\'interface. Veuillez utiliser la base de données directement.'
+                    ], 403);
+                }
+
+                // Appliquer le rôle (0 = user, 1 = admin)
+                if ($newRole === 1) {
+                    $user->setRoles(['ROLE_ADMIN']);
+                } else {
+                    $user->setRoles(['ROLE_USER']);
+                }
+            }
+
+            $em->flush();
+
+            return $this->json([
+                'message' => 'User updated successfully',
+                'id' => $user->getId(),
+                'pseudo' => $user->getPseudo(),
+                'email' => $user->getEmail(),
+                'roles' => $user->getRoles(),
+            ]);
+        } catch (\Throwable $e) {
+            return $this->json([
+                'error' => 'Internal server error',
+                'details' => $e->getMessage(),
+            ], 500);
             
-            // Bloquer si on tente de changer le rôle d'un admin (1 -> 0 ou garder 1)
-            // ou de passer à admin (0 -> 1)
-            if ($currentRole === 1 && $newRole !== $currentRole) {
-                return $this->json([
-                    'error' => 'Impossible de modifier le rôle d\'un administrateur depuis l\'interface. Veuillez utiliser la base de données directement.'
-                ], 403);
-            }
-            
-            if ($newRole === 1 && $currentRole !== 1) {
-                return $this->json([
-                    'error' => 'Impossible de définir le rôle administrateur depuis l\'interface. Veuillez utiliser la base de données directement.'
-                ], 403);
-            }
-            
-            $user->setRole($newRole);
         }
-
-        $em->flush();
-
-        return $this->json([
-            'message' => 'User updated successfully',
-            'id' => $user->getId(),
-            'pseudo' => $user->getPseudo(),
-            'email' => $user->getEmail(),
-            'roles' => $user->getRoles(),
-        ]);
     }
 
     // DELETE
@@ -194,6 +207,7 @@ final class UsersController extends AbstractController
                 'error' => 'Impossible de supprimer un administrateur depuis l\'interface. Veuillez utiliser la base de données directement.'
             ], 403);
         }
+
 
         $em->remove($user);
         $em->flush();

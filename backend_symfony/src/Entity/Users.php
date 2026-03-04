@@ -13,6 +13,15 @@ use Symfony\Component\Security\Core\User\UserInterface;
 #[ORM\Entity(repositoryClass: UsersRepository::class)]
 class Users implements UserInterface, PasswordAuthenticatedUserInterface
 {
+    public function setRoles(array $roles): static
+    {
+        if (in_array('ROLE_ADMIN', $roles, true)) {
+            $this->role = 1;
+        } else {
+            $this->role = 0;
+        }
+        return $this;
+    }
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]

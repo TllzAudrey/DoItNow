@@ -175,15 +175,19 @@ const Users: React.FC = () => {
         credentials: 'include',
         body: JSON.stringify(body)
       });
-
+      // amélioration de la gestion des erreurs pour afficher les détails retournés par l'API
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erreur lors de la mise à jour');
+        let errorData = {};
+        try {
+          errorData = await response.json();
+        } catch {}
+        console.error('Update error details:', errorData);
+        alert((errorData as any)?.details || (errorData as any)?.error || 'Erreur lors de la mise à jour');
+        return;
       }
 
       const result = await response.json();
       console.log('User updated:', result);
-      
       closeModal();
       fetchUsers(); // Recharger la liste des utilisateurs
     } catch (err: any) {
